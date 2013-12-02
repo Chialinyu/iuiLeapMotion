@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		484E4C9617FD80E600A41BF6 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 484E4C9517FD80E600A41BF6 /* main.cpp */; };
 		484E4C9817FD80E600A41BF6 /* iuiLeapMotion.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 484E4C9717FD80E600A41BF6 /* iuiLeapMotion.1 */; };
+		484E4CA117FD815600A41BF6 /* libLeap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 484E4CA017FD815600A41BF6 /* libLeap.dylib */; };
+		484E4CA317FD818300A41BF6 /* libLeap.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 484E4CA017FD815600A41BF6 /* libLeap.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -22,12 +24,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		484E4CA217FD817400A41BF6 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				484E4CA317FD818300A41BF6 /* libLeap.dylib in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		484E4C9217FD80E600A41BF6 /* iuiLeapMotion */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iuiLeapMotion; sourceTree = BUILT_PRODUCTS_DIR; };
 		484E4C9517FD80E600A41BF6 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		484E4C9717FD80E600A41BF6 /* iuiLeapMotion.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = iuiLeapMotion.1; sourceTree = "<group>"; };
+		484E4C9E17FD814700A41BF6 /* Leap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Leap.h; sourceTree = "<group>"; };
+		484E4C9F17FD814700A41BF6 /* LeapMath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LeapMath.h; sourceTree = "<group>"; };
+		484E4CA017FD815600A41BF6 /* libLeap.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libLeap.dylib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -35,6 +50,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				484E4CA117FD815600A41BF6 /* libLeap.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -44,6 +60,9 @@
 		484E4C8917FD80E600A41BF6 = {
 			isa = PBXGroup;
 			children = (
+				484E4CA017FD815600A41BF6 /* libLeap.dylib */,
+				484E4C9E17FD814700A41BF6 /* Leap.h */,
+				484E4C9F17FD814700A41BF6 /* LeapMath.h */,
 				484E4C9417FD80E600A41BF6 /* iuiLeapMotion */,
 				484E4C9317FD80E600A41BF6 /* Products */,
 			);
@@ -76,6 +95,7 @@
 				484E4C8E17FD80E600A41BF6 /* Sources */,
 				484E4C8F17FD80E600A41BF6 /* Frameworks */,
 				484E4C9017FD80E600A41BF6 /* CopyFiles */,
+				484E4CA217FD817400A41BF6 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -186,6 +206,10 @@
 		484E4C9C17FD80E600A41BF6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)\"",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -193,6 +217,10 @@
 		484E4C9D17FD80E600A41BF6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)\"",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
