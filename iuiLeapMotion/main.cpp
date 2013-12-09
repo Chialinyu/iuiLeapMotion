@@ -70,8 +70,56 @@ void SampleListener::onFrame(const Controller& controller) {
     << ", fingers: " << frame.fingers().count()
     << ", tools: " << frame.tools().count()
     << ", gestures: " << frame.gestures().count() << std::endl;
+   
+    /*----------Socket Server Set up-----------*/
+    int port = 8000;
+    int key_tap = 0;
+    char buf[256];
+    int sockfd;
+    int w;
+    socklen_t adr_clnt_len;
+    struct sockaddr_in adr_inet;
+    struct sockaddr_in adr_clnt;
+    adr_clnt_len = sizeof(adr_clnt);
+    int len;
+    std::ostringstream buf_out;
     
-    //--set up udp socket---------------------------------
+    //printf("等待 Client 端...\n");
+    
+    bzero(&adr_inet, sizeof(adr_inet));
+    adr_inet.sin_family = AF_INET;
+    adr_inet.sin_addr.s_addr = inet_addr("192.168.0.105");
+    adr_inet.sin_port = htons(port);
+    
+    bzero(&adr_clnt, sizeof(adr_clnt));
+    adr_clnt.sin_family = AF_INET;
+    adr_clnt.sin_addr.s_addr = inet_addr("192.168.0.105");
+    adr_clnt.sin_port = htons(port);
+    
+    len = sizeof(adr_clnt);
+    
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    
+    if (sockfd == -1) {
+        perror("socket error");
+        exit(1);
+    }
+    
+    /* bind is for recvfrom
+    w = bind(sockfd,(struct sockaddr *)&adr_inet, sizeof(adr_inet));
+    
+    if (w == -1) {
+        perror("bind error");
+        exit(1);
+    }
+    */
+    
+    /*---------- End Socket Server Set up-----------*/
+
+//------------------------------------------------------------old client socket--------------
+
+    /*
+    //--set up udp socket client--------------
     int sockfd;
     int z;
     int hand_level = 0;
@@ -81,9 +129,6 @@ void SampleListener::onFrame(const Controller& controller) {
     socklen_t addrlen = sizeof(adr_srvr);
     int port = 8000;
     int key_tap = 0;
-    
-    //for recvfrom
-    
     
     
     // printf("連結 server...\n");
@@ -99,8 +144,9 @@ void SampleListener::onFrame(const Controller& controller) {
         perror("socket error");
         exit(1);
     }
-    //--end set up------------------------------------------
-   
+    //--end server set up----------------------
+    */
+     
     if (!frame.hands().empty()) {
         // Get the first hand
         const Hand hand = frame.hands()[0];
@@ -138,12 +184,9 @@ void SampleListener::onFrame(const Controller& controller) {
         << "yaw: " << direction.yaw() * RAD_TO_DEG << " degrees" << std::endl;
         */
         
-        //---Socket Client---------------------------------------------
-         
-    //     if( direction.pitch() * RAD_TO_DEG >= 0 ) {
              
-
-       
+        //---Socket Client start---------------------------------------------
+        /*
             if( hand.palmPosition().y > 25 && 100 >= hand.palmPosition().y){
                 hand_level = 1;
             }
@@ -153,39 +196,28 @@ void SampleListener::onFrame(const Controller& controller) {
             else{
                 hand_level = 0;
             }
+         */
         
             //printf("高度: %f, 手指位置： %f", direction.pitch() * RAD_TO_DEG, fingers[0].tipPosition());
            // buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+        
+            //put finger position to buf_out
             buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+        
             //sprintf(buf, "高度: %f\n",direction.pitch() * RAD_TO_DEG );
              
-             /*
-              std::string s = stringstream.str();
-              const char* p = s.c_str(); 
-             */             
-
-    //     }
-         
-         /*
-         printf("傳送結束字串...\n");
-         sprintf(buf, "stop\n");
-         z = sendto(sockfd,buf, sizeof(buf), 0, (struct sockaddr *)&adr_srvr, sizeof(adr_srvr));
         
-         if (z < 0) {
-            perror("sendto error");
-            exit(1);
-         }
-         
-         close(sockfd);
-         printf("訊息傳送結束.\n");
-         exit(0);
-         */
-         
-        //---Socket Client----------------------------------------
+            //std::string s = stringstream.str();
+            //const char* p = s.c_str();
+        
     }
     else{
-        buf_out << "0, 0, 0, 0";
+        
+         buf_out << "0, 0, 0, 0";
     }
+    //---End Socket Client----------------------------------------
+    
+//-----------------------------------------------------end of old client socket--------------
     
     // Get gestures
     const GestureList gestures = frame.gestures();
@@ -257,23 +289,28 @@ void SampleListener::onFrame(const Controller& controller) {
         std::cout << std::endl;
     }
     
-    //--socket send message-------------------
+    
+    //socket add key_tap
     if (!frame.hands().empty()){
         buf_out << ", " << key_tap;
     }
     
+    //printf but_out
     buf_out << std::endl;
     std::cout << buf_out.str() << std::endl;
     
-    z = (int)sendto(sockfd, buf_out.str().c_str(), sizeof(buf_out), 0, (struct sockaddr *)&adr_srvr, sizeof(adr_srvr));
+    //--socket send message-------------------
+    w = (int)sendto(sockfd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr *)&adr_clnt, sizeof(adr_clnt));
+    //w = (int)send(sockfd, buf_out.str().c_str(), sizeof(buf_out), 0);
     
-    if (z < 0) {
-        perror("sendto error");
+    if (w < 0) {
+        perror("send error");
         exit(1);
     }
     
     close(sockfd);
     //--end socket send message------------------
+    
 }
 
 void SampleListener::onFocusGained(const Controller& controller) {
