@@ -71,29 +71,29 @@ void SampleListener::onFrame(const Controller& controller) {
     << ", tools: " << frame.tools().count()
     << ", gestures: " << frame.gestures().count() << std::endl;
    
-    /*----------Socket Server Set up-----------*/
+    //----------Socket Server Set up-------------------
+    
     int port = 8000;
     int key_tap = 0;
-    char buf[256];
     int sockfd;
     int w;
     socklen_t adr_clnt_len;
-    struct sockaddr_in adr_inet;
+   // struct sockaddr_in adr_inet;
     struct sockaddr_in adr_clnt;
     adr_clnt_len = sizeof(adr_clnt);
     int len;
     std::ostringstream buf_out;
     
     //printf("等待 Client 端...\n");
-    
+    /*
     bzero(&adr_inet, sizeof(adr_inet));
     adr_inet.sin_family = AF_INET;
-    adr_inet.sin_addr.s_addr = inet_addr("192.168.0.105");
+    adr_inet.sin_addr.s_addr = inet_addr("192.168.0.110");
     adr_inet.sin_port = htons(port);
     
     bzero(&adr_clnt, sizeof(adr_clnt));
     adr_clnt.sin_family = AF_INET;
-    adr_clnt.sin_addr.s_addr = inet_addr("192.168.0.105");
+    adr_clnt.sin_addr.s_addr = inet_addr("192.168.0.108");
     adr_clnt.sin_port = htons(port);
     
     len = sizeof(adr_clnt);
@@ -104,6 +104,38 @@ void SampleListener::onFrame(const Controller& controller) {
         perror("socket error");
         exit(1);
     }
+     */
+    //---------End Socket Server Setup-------------------------
+    
+    //---------------------------------------------
+    // Open a socket
+    int sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sd<=0) {
+        perror("Error: Could not open socket");
+    }
+    
+    // Set socket options
+    // Enable broadcast
+    int broadcastEnable=1;
+    int ret=setsockopt(sd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+    if (ret) {
+        perror("Error: Could not open set socket to broadcast mode");
+        close(sd);
+    }
+    
+    // Since we don't call bind() here, the system decides on the port for us, which is what we want.
+    
+    // Configure the port and ip we want to send to
+    struct sockaddr_in broadcastAddr; // Make an endpoint
+    memset(&broadcastAddr, 0, sizeof broadcastAddr);
+    broadcastAddr.sin_family = AF_INET;
+    inet_pton(AF_INET, "192.168.1.100", &broadcastAddr.sin_addr); // Set the self broadcast IP address
+    broadcastAddr.sin_port = htons(port); // Set port 8000
+    
+    // Send the broadcast request, ie "Any upnp devices out there?"
+
+    //---------------------------------------------
+    
     
     /* bind is for recvfrom
     w = bind(sockfd,(struct sockaddr *)&adr_inet, sizeof(adr_inet));
@@ -300,6 +332,7 @@ void SampleListener::onFrame(const Controller& controller) {
     std::cout << buf_out.str() << std::endl;
     
     //--socket send message-------------------
+    /*
     w = (int)sendto(sockfd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr *)&adr_clnt, sizeof(adr_clnt));
     //w = (int)send(sockfd, buf_out.str().c_str(), sizeof(buf_out), 0);
     
@@ -307,8 +340,15 @@ void SampleListener::onFrame(const Controller& controller) {
         perror("send error");
         exit(1);
     }
+    */
+     
+    ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof broadcastAddr);
+    if (ret<0) {
+        perror("Error: Could not open send broadcast");
+        close(sd);
+    }
     
-    close(sockfd);
+    close(sd);
     //--end socket send message------------------
     
 }
