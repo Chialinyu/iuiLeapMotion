@@ -129,7 +129,8 @@ void SampleListener::onFrame(const Controller& controller) {
     struct sockaddr_in broadcastAddr; // Make an endpoint
     memset(&broadcastAddr, 0, sizeof broadcastAddr);
     broadcastAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "192.168.1.100", &broadcastAddr.sin_addr); // Set the self broadcast IP address
+    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*192.168.0.255*/
+    // Set the self broadcast IP address
     broadcastAddr.sin_port = htons(port); // Set port 8000
     
     // Send the broadcast request, ie "Any upnp devices out there?"
@@ -234,10 +235,10 @@ void SampleListener::onFrame(const Controller& controller) {
            // buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
         
             //put finger position to buf_out
-            buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+            buf_out << hand.palmPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
         
             //sprintf(buf, "高度: %f\n",direction.pitch() * RAD_TO_DEG );
-             
+        printf("palmPositon: %f, %f, %f\n", hand.palmPosition().x, hand.palmPosition().y, hand.palmPosition().z);
         
             //std::string s = stringstream.str();
             //const char* p = s.c_str();
