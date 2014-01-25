@@ -182,7 +182,13 @@ void SampleListener::onFrame(const Controller& controller) {
      
     if (!frame.hands().empty()) {
         // Get the first hand
-        const Hand hand = frame.hands()[0];
+        Hand hand = frame.hands()[0];
+        if(frame.hands().count() != 1){
+            const Hand hand0 = frame.hands()[0];
+            const Hand hand1 = frame.hands()[1];
+            if(hand0.palmPosition().y >= hand1.palmPosition().y)
+                hand = frame.hands()[1];
+        }
         
         // Check if the hand has any fingers
         const FingerList fingers = hand.fingers();
@@ -235,11 +241,11 @@ void SampleListener::onFrame(const Controller& controller) {
            // buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
         
             //put finger position to buf_out
-            buf_out << hand.palmPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+            buf_out << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z;
         
             //sprintf(buf, "高度: %f\n",direction.pitch() * RAD_TO_DEG );
         printf("palmPositon: %f, %f, %f\n", hand.palmPosition().x, hand.palmPosition().y, hand.palmPosition().z);
-        
+        printf("fingerPosition: %f, %f ,%f\n",fingers[0].tipPosition().x, fingers[0].tipPosition().y, fingers[0].tipPosition().z);
             //std::string s = stringstream.str();
             //const char* p = s.c_str();
         
@@ -342,8 +348,11 @@ void SampleListener::onFrame(const Controller& controller) {
         exit(1);
     }
     */
-     
-    ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof broadcastAddr);
+    
+    // milliseconds to 1/50 seconds
+    if(frame.timestamp()%20 == 0 ){
+        ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof broadcastAddr);
+    }
     if (ret<0) {
         perror("Error: Could not open send broadcast");
         close(sd);
