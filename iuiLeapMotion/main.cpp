@@ -334,10 +334,6 @@ void SampleListener::onFrame(const Controller& controller) {
         buf_out << ", " << key_tap;
     }
     
-    //printf but_out
-    buf_out << std::endl;
-    std::cout << buf_out.str() << std::endl;
-    
     //--socket send message-------------------
     /*
     w = (int)sendto(sockfd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr *)&adr_clnt, sizeof(adr_clnt));
@@ -350,8 +346,11 @@ void SampleListener::onFrame(const Controller& controller) {
     */
     
     // milliseconds to 1/50 seconds
-    if(frame.timestamp()%20 == 0 ){
+    if(frame.id() % 20 == 0 ){
         ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof broadcastAddr);
+        //printf but_out
+        buf_out << std::endl;
+        std::cout << buf_out.str() << std::endl;
     }
     if (ret<0) {
         perror("Error: Could not open send broadcast");
