@@ -129,7 +129,7 @@ void SampleListener::onFrame(const Controller& controller) {
     struct sockaddr_in broadcastAddr; // Make an endpoint
     memset(&broadcastAddr, 0, sizeof broadcastAddr);
     broadcastAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*192.168.0.255*/
+    inet_pton(AF_INET, "127.0.0.1", &broadcastAddr.sin_addr); /*192.168.0.255*/
     // Set the self broadcast IP address
     broadcastAddr.sin_port = htons(port); // Set port 8000
     
@@ -241,7 +241,7 @@ void SampleListener::onFrame(const Controller& controller) {
            // buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
         
             //put finger position to buf_out
-            buf_out << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z;
+            buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z << ", " << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z;
         
             //sprintf(buf, "高度: %f\n",direction.pitch() * RAD_TO_DEG );
         printf("palmPositon: %f, %f, %f\n", hand.palmPosition().x, hand.palmPosition().y, hand.palmPosition().z);
@@ -252,7 +252,7 @@ void SampleListener::onFrame(const Controller& controller) {
     }
     else{
         
-         buf_out << "0, 0, 0, 0";
+         buf_out << "0, 0, 0, 0, 0, 0, 0";
     }
     //---End Socket Client----------------------------------------
     
@@ -346,12 +346,12 @@ void SampleListener::onFrame(const Controller& controller) {
     */
     
     // milliseconds to 1/50 seconds
-    if(frame.id() % 20 == 0 ){
+    //if(frame.id() % 20 == 0 ){
         ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof broadcastAddr);
         //printf but_out
         buf_out << std::endl;
         std::cout << buf_out.str() << std::endl;
-    }
+    //}
     if (ret<0) {
         perror("Error: Could not open send broadcast");
         close(sd);
