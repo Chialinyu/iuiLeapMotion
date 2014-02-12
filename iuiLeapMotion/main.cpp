@@ -26,8 +26,16 @@
 
 #include <iostream>
 #include "Leap.h"
-using namespace Leap;
+int tapSettingDone;
+float MaxVelocity;
 
+int sd;
+struct sockaddr_in broadcastAddr;
+std::ostringstream buf_out;
+int key_tap = 0;
+int ret;
+
+using namespace Leap;
 
 class SampleListener : public Listener {
 public:
@@ -61,63 +69,54 @@ void SampleListener::onExit(const Controller& controller) {
     std::cout << "Exited" << std::endl;
 }
 
-void SampleListener::onFrame(const Controller& controller) {
-    // Get the most recent frame and report some basic information
-    const Frame frame = controller.frame();
-    std::cout << "Frame id: " << frame.id()
-    << ", timestamp: " << frame.timestamp()
-    << ", hands: " << frame.hands().count()
-    << ", fingers: " << frame.fingers().count()
-    << ", tools: " << frame.tools().count()
-    << ", gestures: " << frame.gestures().count() << std::endl;
-   
-    //----------Socket Server Set up-------------------
+
+void socket_setup(int port){
+    //----------Socket Server Set up------------------------------------------------
     
-    int port = 8000;
-    int key_tap = 0;
     int sockfd;
     int w;
     socklen_t adr_clnt_len;
-   // struct sockaddr_in adr_inet;
+    // struct sockaddr_in adr_inet;
     struct sockaddr_in adr_clnt;
     adr_clnt_len = sizeof(adr_clnt);
     int len;
-    std::ostringstream buf_out;
     
     //printf("等待 Client 端...\n");
     /*
-    bzero(&adr_inet, sizeof(adr_inet));
-    adr_inet.sin_family = AF_INET;
-    adr_inet.sin_addr.s_addr = inet_addr("192.168.0.110");
-    adr_inet.sin_port = htons(port);
-    
-    bzero(&adr_clnt, sizeof(adr_clnt));
-    adr_clnt.sin_family = AF_INET;
-    adr_clnt.sin_addr.s_addr = inet_addr("192.168.0.108");
-    adr_clnt.sin_port = htons(port);
-    
-    len = sizeof(adr_clnt);
-    
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    
-    if (sockfd == -1) {
-        perror("socket error");
-        exit(1);
-    }
+     bzero(&adr_inet, sizeof(adr_inet));
+     adr_inet.sin_family = AF_INET;
+     adr_inet.sin_addr.s_addr = inet_addr("192.168.0.110");
+     adr_inet.sin_port = htons(port);
+     
+     bzero(&adr_clnt, sizeof(adr_clnt));
+     adr_clnt.sin_family = AF_INET;
+     adr_clnt.sin_addr.s_addr = inet_addr("192.168.0.108");
+     adr_clnt.sin_port = htons(port);
+     
+     len = sizeof(adr_clnt);
+     
+     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+     
+     if (sockfd == -1) {
+     perror("socket error");
+     exit(1);
+     }
      */
     //---------End Socket Server Setup-------------------------
     
     //---------------------------------------------
     // Open a socket
-    int sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    
+    sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sd<=0) {
         perror("Error: Could not open socket");
     }
     
+    
     // Set socket options
     // Enable broadcast
     int broadcastEnable=1;
-    int ret=setsockopt(sd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
+    ret=setsockopt(sd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable));
     if (ret) {
         perror("Error: Could not open set socket to broadcast mode");
         close(sd);
@@ -126,60 +125,78 @@ void SampleListener::onFrame(const Controller& controller) {
     // Since we don't call bind() here, the system decides on the port for us, which is what we want.
     
     // Configure the port and ip we want to send to
-    struct sockaddr_in broadcastAddr; // Make an endpoint
+    
+    // Make an endpoint
     memset(&broadcastAddr, 0, sizeof broadcastAddr);
     broadcastAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "127.0.0.1", &broadcastAddr.sin_addr); /*192.168.0.255*/
+    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*192.168.0.255*/
     // Set the self broadcast IP address
     broadcastAddr.sin_port = htons(port); // Set port 8000
     
     // Send the broadcast request, ie "Any upnp devices out there?"
-
+    
     //---------------------------------------------
     
     
     /* bind is for recvfrom
-    w = bind(sockfd,(struct sockaddr *)&adr_inet, sizeof(adr_inet));
-    
-    if (w == -1) {
-        perror("bind error");
-        exit(1);
-    }
-    */
+     w = bind(sockfd,(struct sockaddr *)&adr_inet, sizeof(adr_inet));
+     
+     if (w == -1) {
+     perror("bind error");
+     exit(1);
+     }
+     */
     
     /*---------- End Socket Server Set up-----------*/
+    
+}
 
-//------------------------------------------------------------old client socket--------------
-
+void SampleListener::onFrame(const Controller& controller) {
+    // Get the most recent frame and report some basic information
+    const Frame frame = controller.frame();
+/*
+    std::cout << "Frame id: " << frame.id()
+    << ", timestamp: " << frame.timestamp()
+    << ", hands: " << frame.hands().count()
+    << ", fingers: " << frame.fingers().count()
+    << ", tools: " << frame.tools().count()
+    << ", gestures: " << frame.gestures().count() << std::endl;
+*/
+    //------------------------------------------------------------old client socket--------------
+    
     /*
-    //--set up udp socket client--------------
-    int sockfd;
-    int z;
-    int hand_level = 0;
-    char buf[80];
-    std::ostringstream buf_out;
-    struct sockaddr_in adr_srvr;
-    socklen_t addrlen = sizeof(adr_srvr);
-    int port = 8000;
-    int key_tap = 0;
-    
-    
-    // printf("連結 server...\n");
-    bzero(&adr_srvr, sizeof(adr_srvr));
-    adr_srvr.sin_family = AF_INET;
-    adr_srvr.sin_addr.s_addr = inet_addr("192.168.0.107");
-    adr_srvr.sin_port = htons(port);
-    
-    
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    
-    if (sockfd == -1) {
-        perror("socket error");
-        exit(1);
-    }
-    //--end server set up----------------------
-    */
+     //--set up udp socket client--------------
+     int sockfd;
+     int z;
+     int hand_level = 0;
+     char buf[80];
+     std::ostringstream buf_out;
+     struct sockaddr_in adr_srvr;
+     socklen_t addrlen = sizeof(adr_srvr);
+     int port = 8000;
+     int key_tap = 0;
      
+     
+     // printf("連結 server...\n");
+     bzero(&adr_srvr, sizeof(adr_srvr));
+     adr_srvr.sin_family = AF_INET;
+     adr_srvr.sin_addr.s_addr = inet_addr("192.168.0.107");
+     adr_srvr.sin_port = htons(port);
+     
+     
+     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+     
+     if (sockfd == -1) {
+     perror("socket error");
+     exit(1);
+     }
+     //--end server set up----------------------
+     */
+    
+    //clean buf_out
+    buf_out.str("");
+    buf_out.clear();
+    
     if (!frame.hands().empty()) {
         // Get the first hand
         Hand hand = frame.hands()[0];
@@ -201,62 +218,74 @@ void SampleListener::onFrame(const Controller& controller) {
             avgPos /= (float)fingers.count();
             
             /* temp mark
-            std::cout << "Hand has " << fingers.count()
-            << " fingers, average finger tip position" << avgPos << std::endl;
-            */
+             std::cout << "Hand has " << fingers.count()
+             << " fingers, average finger tip position" << avgPos << std::endl;
+             */
         }
         
         /* temp mark
-        // Get the hand's sphere radius and palm position
-        std::cout << "Hand sphere radius: " << hand.sphereRadius()
-        << " mm, palm position: " << hand.palmPosition() << std::endl;
-        */
+         // Get the hand's sphere radius and palm position
+         std::cout << "Hand sphere radius: " << hand.sphereRadius()
+         << " mm, palm position: " << hand.palmPosition() << std::endl;
+         */
         
         // Get the hand's normal vector and direction
         const Vector normal = hand.palmNormal();
         const Vector direction = hand.direction();
         
         /* temp mark
-        // Calculate the hand's pitch, roll, and yaw angles
-        std::cout << "Hand pitch: " << direction.pitch() * RAD_TO_DEG << " degrees, "
-        << "roll: " << normal.roll() * RAD_TO_DEG << " degrees, "
-        << "yaw: " << direction.yaw() * RAD_TO_DEG << " degrees" << std::endl;
-        */
-        
-             
-        //---Socket Client start---------------------------------------------
-        /*
-            if( hand.palmPosition().y > 25 && 100 >= hand.palmPosition().y){
-                hand_level = 1;
-            }
-            else if(hand.palmPosition().y > 100 && 175 >= hand.palmPosition().y){
-                hand_level = 2;
-            }
-            else{
-                hand_level = 0;
-            }
+         // Calculate the hand's pitch, roll, and yaw angles
+         std::cout << "Hand pitch: " << direction.pitch() * RAD_TO_DEG << " degrees, "
+         << "roll: " << normal.roll() * RAD_TO_DEG << " degrees, "
+         << "yaw: " << direction.yaw() * RAD_TO_DEG << " degrees" << std::endl;
          */
         
-            //printf("高度: %f, 手指位置： %f", direction.pitch() * RAD_TO_DEG, fingers[0].tipPosition());
-           // buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
         
-            //put finger position to buf_out
-            buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z << ", " << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z;
+        //---Socket Client start---------------------------------------------
+        /*
+         if( hand.palmPosition().y > 25 && 100 >= hand.palmPosition().y){
+         hand_level = 1;
+         }
+         else if(hand.palmPosition().y > 100 && 175 >= hand.palmPosition().y){
+         hand_level = 2;
+         }
+         else{
+         hand_level = 0;
+         }
+         */
         
-            //sprintf(buf, "高度: %f\n",direction.pitch() * RAD_TO_DEG );
-        printf("palmPositon: %f, %f, %f\n", hand.palmPosition().x, hand.palmPosition().y, hand.palmPosition().z);
-        printf("fingerPosition: %f, %f ,%f\n",fingers[0].tipPosition().x, fingers[0].tipPosition().y, fingers[0].tipPosition().z);
-            //std::string s = stringstream.str();
-            //const char* p = s.c_str();
+        //printf("高度: %f, 手指位置： %f", direction.pitch() * RAD_TO_DEG, fingers[0].tipPosition());
+        // buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+        
+        
+        //put finger position to buf_out
+        buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z << ", " << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z << ", " << fingers[0].tipVelocity().y;
+        
+        //sprintf(buf, "高度: %f\n",direction.pitch() * RAD_TO_DEG );
+        //std::string s = stringstream.str();
+        //const char* p = s.c_str();
+        
+        if (!tapSettingDone && fingers[0].tipVelocity().y < MaxVelocity
+                            && fingers[0].tipVelocity().y < 0
+                            && abs(fingers[0].tipVelocity().y) > abs(hand.palmVelocity().y)) {
+            MaxVelocity = fingers[0].tipVelocity().y;
+        }
         
     }
     else{
         
-         buf_out << "0, 0, 0, 0, 0, 0, 0";
+        buf_out << "0, 0, 0, 0, 0, 0, 0, 0";
     }
     //---End Socket Client----------------------------------------
     
-//-----------------------------------------------------end of old client socket--------------
+    //-----------------------------------------------------end of old client socket--------------
+    
+    //Set new keytap configuration
+    if(tapSettingDone &&
+       controller.config().setFloat("Gesture.KeyTap.MinDownVelocity", MaxVelocity) &&
+       controller.config().setFloat("Gesture.KeyTap.HistorySeconds", .2f) &&
+       controller.config().setFloat("Gesture.KeyTap.MinDistance", 3.0f))
+    controller.config().save();
     
     // Get gestures
     const GestureList gestures = frame.gestures();
@@ -305,7 +334,7 @@ void SampleListener::onFrame(const Controller& controller) {
                 << ", state: " << gesture.state()
                 << ", position: " << tap.position()
                 << ", direction: " << tap.direction()<< std::endl;
-
+                
                 key_tap = 1;
                 break;
             }
@@ -336,28 +365,34 @@ void SampleListener::onFrame(const Controller& controller) {
     
     //--socket send message-------------------
     /*
-    w = (int)sendto(sockfd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr *)&adr_clnt, sizeof(adr_clnt));
-    //w = (int)send(sockfd, buf_out.str().c_str(), sizeof(buf_out), 0);
+     w = (int)sendto(sockfd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr *)&adr_clnt, sizeof(adr_clnt));
+     //w = (int)send(sockfd, buf_out.str().c_str(), sizeof(buf_out), 0);
+     
+     if (w < 0) {
+     perror("send error");
+     exit(1);
+     }
+     */
+    socket_setup(8000);
+/*
+    printf("%d.%d.%d.%d\n",
+           int(broadcastAddr.sin_addr.s_addr&0xFF),
+           int((broadcastAddr.sin_addr.s_addr&0xFF00)>>8),
+           int((broadcastAddr.sin_addr.s_addr&0xFF0000)>>16),
+           int((broadcastAddr.sin_addr.s_addr&0xFF000000)>>24));
+*/
+    ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
+    buf_out << std::endl;
+    std::cout << buf_out.str() << std::endl;
+    key_tap = 0;
     
-    if (w < 0) {
-        perror("send error");
-        exit(1);
-    }
-    */
-    
-    // milliseconds to 1/50 seconds
-    //if(frame.id() % 20 == 0 ){
-        ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof broadcastAddr);
-        //printf but_out
-        buf_out << std::endl;
-        std::cout << buf_out.str() << std::endl;
-    //}
     if (ret<0) {
         perror("Error: Could not open send broadcast");
         close(sd);
     }
     
     close(sd);
+    
     //--end socket send message------------------
     
 }
@@ -370,31 +405,43 @@ void SampleListener::onFocusLost(const Controller& controller) {
     std::cout << "Focus Lost" << std::endl;
 }
 
-/*
-void define_level(){
-    while (1) {
-        z = (int)recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&adr_clnt, &adr_clnt_len);
-    }
-}
-*/
 int main() {
     
     
     // Create a sample listener and controller
-    SampleListener listener;
+    SampleListener listener_transmitting;
     Controller controller;
     
-    // Have the sample listener receive events from the controller
-    controller.addListener(listener);
+    SampleListener listener_tapSetting;
     
-//    std::thread mThread( define_level );
+    tapSettingDone = 0;
+    MaxVelocity = 0;
+    int input;
+    while (scanf("%d", &input) == 1) {
+        if (input == 1) { //tapSetting Mode
+            std::cout << "Start Setting KeyTap!\n";
+            tapSettingDone = 0;
+            // Have the sample listener receive events from the controller
+            controller.addListener(listener_tapSetting);
+            printf("tapSetting......\n");
+            //std::cout << "Press Enter to quit..." << std::endl;
+            //std::cin.get();
+        }else if(input == 2){
+            // Remove the sample listener when done
+            controller.removeListener(listener_tapSetting);
+            std::cout << "AverageTapVelocity: " << MaxVelocity << std::endl;
+            tapSettingDone = 1;
+        }else if(input == 3){
+            std::cout << "Start Transmitting!\n";
+            controller.addListener(listener_transmitting);
+            
+        }
+    }
+    
+    //    std::thread mThread( define_level );
     
     // Keep this process running until Enter is pressed
-    std::cout << "Press Enter to quit..." << std::endl;
-    std::cin.get();
     
-    // Remove the sample listener when done
-    controller.removeListener(listener);
     
     return 0;
 }
