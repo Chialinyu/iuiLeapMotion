@@ -28,6 +28,10 @@
 #include "Leap.h"
 int tapSettingDone;
 float MaxVelocity;
+float HighestFingerPosition;
+float LowestFingerPosition;
+long HighestFingerTimestamp;
+long LowestFingerTimestamp; 
 
 int sd;
 struct sockaddr_in broadcastAddr;
@@ -129,7 +133,7 @@ void socket_setup(int port){
     // Make an endpoint
     memset(&broadcastAddr, 0, sizeof broadcastAddr);
     broadcastAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*192.168.0.255*/
+    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*192.168.0.255*//*169.254.255.255*/
     // Set the self broadcast IP address
     broadcastAddr.sin_port = htons(port); // Set port 8000
     
@@ -154,14 +158,14 @@ void socket_setup(int port){
 void SampleListener::onFrame(const Controller& controller) {
     // Get the most recent frame and report some basic information
     const Frame frame = controller.frame();
-/*
-    std::cout << "Frame id: " << frame.id()
-    << ", timestamp: " << frame.timestamp()
-    << ", hands: " << frame.hands().count()
-    << ", fingers: " << frame.fingers().count()
-    << ", tools: " << frame.tools().count()
-    << ", gestures: " << frame.gestures().count() << std::endl;
-*/
+
+//    std::cout << "Frame id: " << frame.id()
+//    << ", timestamp: " << frame.timestamp()
+//    << ", hands: " << frame.hands().count()
+//    << ", fingers: " << frame.fingers().count()
+//    << ", tools: " << frame.tools().count()
+//    << ", gestures: " << frame.gestures().count() << std::endl;
+
     //------------------------------------------------------------old client socket--------------
     
     /*
@@ -265,10 +269,23 @@ void SampleListener::onFrame(const Controller& controller) {
         //std::string s = stringstream.str();
         //const char* p = s.c_str();
         
-        if (!tapSettingDone && fingers[0].tipVelocity().y < MaxVelocity
-                            && fingers[0].tipVelocity().y < 0
-                            && abs(fingers[0].tipVelocity().y) > abs(hand.palmVelocity().y)) {
-            MaxVelocity = fingers[0].tipVelocity().y;
+        if (!tapSettingDone && abs(fingers[0].tipVelocity().y) > abs(hand.palmVelocity().y)
+                            && !fingers.empty()) {
+            if(fingers[0].tipVelocity().y < MaxVelocity && fingers[0].tipVelocity().y < 0){
+                MaxVelocity = fingers[0].tipVelocity().y;
+            }
+            if (fingers[0].tipPosition().y > HighestFingerPosition && fingers[0].tipVelocity().y < 0) {
+                HighestFingerPosition = fingers[0].tipPosition().y;
+                HighestFingerTimestamp = frame.timestamp();
+//                std::cout << "HighestTimestamp: " << HighestFingerTimestamp << std::endl;
+//                std::cout << buf_out.str() << std::endl;
+            }
+            if (fingers[0].tipPosition().y < LowestFingerPosition && fingers[0].tipVelocity().y < 0) {
+                LowestFingerPosition = fingers[0].tipPosition().y;
+                LowestFingerTimestamp = frame.timestamp();
+//                std::cout << "LowestTimestamp: " << LowestFingerTimestamp << std::endl;
+//                std::cout << buf_out.str() << std::endl;
+            }
         }
         
     }
@@ -281,11 +298,18 @@ void SampleListener::onFrame(const Controller& controller) {
     //-----------------------------------------------------end of old client socket--------------
     
     //Set new keytap configuration
-    if(tapSettingDone &&
-       controller.config().setFloat("Gesture.KeyTap.MinDownVelocity", MaxVelocity) &&
-       controller.config().setFloat("Gesture.KeyTap.HistorySeconds", .2f) &&
-       controller.config().setFloat("Gesture.KeyTap.MinDistance", 3.0f))
-    controller.config().save();
+    if(tapSettingDone){
+        controller.config().setFloat("Gesture.KeyTap.MinDistance", 2.0f);
+        
+        if ( MaxVelocity > -50 ){
+            controller.config().setFloat("Gesture.KeyTap.MinDownVelocity", fabs(MaxVelocity));
+        }
+        
+        if ( fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000 > 0.1) {
+            controller.config().setFloat("Gesture.KeyTap.HistorySeconds", fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000);
+        }
+        controller.config().save();
+    }
     
     // Get gestures
     const GestureList gestures = frame.gestures();
@@ -293,40 +317,40 @@ void SampleListener::onFrame(const Controller& controller) {
         Gesture gesture = gestures[g];
         
         switch (gesture.type()) {
-            case Gesture::TYPE_CIRCLE:
-            {
-                CircleGesture circle = gesture;
-                std::string clockwiseness;
-                
-                if (circle.pointable().direction().angleTo(circle.normal()) <= PI/4) {
-                    clockwiseness = "clockwise";
-                } else {
-                    clockwiseness = "counterclockwise";
-                }
-                
-                // Calculate angle swept since last frame
-                float sweptAngle = 0;
-                if (circle.state() != Gesture::STATE_START) {
-                    CircleGesture previousUpdate = CircleGesture(controller.frame(1).gesture(circle.id()));
-                    sweptAngle = (circle.progress() - previousUpdate.progress()) * 2 * PI;
-                }
-                std::cout << "Circle id: " << gesture.id()
-                << ", state: " << gesture.state()
-                << ", progress: " << circle.progress()
-                << ", radius: " << circle.radius()
-                << ", angle " << sweptAngle * RAD_TO_DEG
-                <<  ", " << clockwiseness << std::endl;
-                break;
-            }
-            case Gesture::TYPE_SWIPE:
-            {
-                SwipeGesture swipe = gesture;
-                std::cout << "Swipe id: " << gesture.id()
-                << ", state: " << gesture.state()
-                << ", direction: " << swipe.direction()
-                << ", speed: " << swipe.speed() << std::endl;
-                break;
-            }
+//            case Gesture::TYPE_CIRCLE:
+//            {
+//                CircleGesture circle = gesture;
+//                std::string clockwiseness;
+//                
+//                if (circle.pointable().direction().angleTo(circle.normal()) <= PI/4) {
+//                    clockwiseness = "clockwise";
+//                } else {
+//                    clockwiseness = "counterclockwise";
+//                }
+//                
+//                // Calculate angle swept since last frame
+//                float sweptAngle = 0;
+//                if (circle.state() != Gesture::STATE_START) {
+//                    CircleGesture previousUpdate = CircleGesture(controller.frame(1).gesture(circle.id()));
+//                    sweptAngle = (circle.progress() - previousUpdate.progress()) * 2 * PI;
+//                }
+//                std::cout << "Circle id: " << gesture.id()
+//                << ", state: " << gesture.state()
+//                << ", progress: " << circle.progress()
+//                << ", radius: " << circle.radius()
+//                << ", angle " << sweptAngle * RAD_TO_DEG
+//                <<  ", " << clockwiseness << std::endl;
+//                break;
+//            }
+//            case Gesture::TYPE_SWIPE:
+//            {
+//                SwipeGesture swipe = gesture;
+//                std::cout << "Swipe id: " << gesture.id()
+//                << ", state: " << gesture.state()
+//                << ", direction: " << swipe.direction()
+//                << ", speed: " << swipe.speed() << std::endl;
+//                break;
+//            }
             case Gesture::TYPE_KEY_TAP:
             {
                 KeyTapGesture tap = gesture;
@@ -338,23 +362,23 @@ void SampleListener::onFrame(const Controller& controller) {
                 key_tap = 1;
                 break;
             }
-            case Gesture::TYPE_SCREEN_TAP:
-            {
-                ScreenTapGesture screentap = gesture;
-                std::cout << "Screen Tap id: " << gesture.id()
-                << ", state: " << gesture.state()
-                << ", position: " << screentap.position()
-                << ", direction: " << screentap.direction()<< std::endl;
-                break;
-            }
+//            case Gesture::TYPE_SCREEN_TAP:
+//            {
+//                ScreenTapGesture screentap = gesture;
+//                std::cout << "Screen Tap id: " << gesture.id()
+//                << ", state: " << gesture.state()
+//                << ", position: " << screentap.position()
+//                << ", direction: " << screentap.direction()<< std::endl;
+//                break;
+//            }
             default:
-                std::cout << "Unknown gesture type." << std::endl;
+//                std::cout << "Unknown gesture type." << std::endl;
                 break;
         }
     }
     
     if (!frame.hands().empty() || !gestures.empty()) {
-        std::cout << std::endl;
+ //       std::cout << std::endl;
     }
     
     
@@ -382,8 +406,8 @@ void SampleListener::onFrame(const Controller& controller) {
            int((broadcastAddr.sin_addr.s_addr&0xFF000000)>>24));
 */
     ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
-    buf_out << std::endl;
-    std::cout << buf_out.str() << std::endl;
+//    buf_out << std::endl;
+//    std::cout << buf_out.str() << std::endl;
     key_tap = 0;
     
     if (ret<0) {
@@ -416,11 +440,16 @@ int main() {
     
     tapSettingDone = 0;
     MaxVelocity = 0;
+    HighestFingerPosition = 0;
+    LowestFingerPosition = 1000;
     int input;
     while (scanf("%d", &input) == 1) {
         if (input == 1) { //tapSetting Mode
             std::cout << "Start Setting KeyTap!\n";
             tapSettingDone = 0;
+            MaxVelocity = 0;
+            HighestFingerPosition = 0;
+            LowestFingerPosition = 1000;
             // Have the sample listener receive events from the controller
             controller.addListener(listener_tapSetting);
             printf("tapSetting......\n");
@@ -429,7 +458,8 @@ int main() {
         }else if(input == 2){
             // Remove the sample listener when done
             controller.removeListener(listener_tapSetting);
-            std::cout << "AverageTapVelocity: " << MaxVelocity << std::endl;
+            std::cout << "HighestTapVelocity: " << MaxVelocity << std::endl;
+            std::cout << "HistorySeconds: " << fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000 <<std::endl;
             tapSettingDone = 1;
         }else if(input == 3){
             std::cout << "Start Transmitting!\n";
