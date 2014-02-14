@@ -35,6 +35,7 @@ long LowestFingerTimestamp;
 float buf[4][4] = {0}; //tipVelocity, x, y, z
 int refresh_buf = 1;
 int stuck = 0;
+long long tempTimestamp;
 
 int sd;
 struct sockaddr_in broadcastAddr;
@@ -136,7 +137,7 @@ void socket_setup(int port){
     // Make an endpoint
     memset(&broadcastAddr, 0, sizeof broadcastAddr);
     broadcastAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "127.0.0.1", &broadcastAddr.sin_addr); /*192.168.0.255*//*169.254.255.255*/
+    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*192.168.0.255*//*169.254.255.255*/
     // Set the self broadcast IP address
     broadcastAddr.sin_port = htons(port); // Set port 8000
     
@@ -366,13 +367,18 @@ void SampleListener::onFrame(const Controller& controller) {
         //std::string s = stringstream.str();
         //const char* p = s.c_str();
         
-        if(fingers[0].tipVelocity().y < -200 && abs(fingers[0].tipVelocity().y) > 2*abs(hand.palmVelocity().y)){
+        if(fingers[0].tipVelocity().y < -200 && abs(fingers[0].tipVelocity().y) > 2*abs(hand.palmVelocity().y) && refresh_buf){
             refresh_buf = 0;
+            tempTimestamp = frame.timestamp();
 //            printf("Close\n");
         }
+        if (frame.timestamp() >= tempTimestamp+200000 && !key_tap) {
+            refresh_buf = 1;
+        }
+        
         if (refresh_buf && (fingers[0].tipPosition().y != 0 && fingers[0].tipPosition().x != 0 && fingers[0].tipPosition().z != 0)) {
             int i;
-            for(i=0; i<4; i++){
+            for(i=0; i<3; i++){
                 buf[i][0] = buf[i+1][0];
                 buf[i][1] = buf[i+1][1];
                 buf[i][2] = buf[i+1][2];
@@ -382,25 +388,30 @@ void SampleListener::onFrame(const Controller& controller) {
             buf[3][1] = fingers[0].tipPosition().x;
             buf[3][2] = fingers[0].tipPosition().z;
             buf[3][3] = fingers[0].tipVelocity().y;
-        }
-        if (!refresh_buf && key_tap) {
-            int i;
-            printf("I am the answer!\n");
-            for (i=3; i>=0; i--) {
-                if (buf[i][3] < 100 && buf[i][3] > -100) {
-                    buf_out << buf[i][0] << ", " << buf[i][1] << ", " << buf[i][2];
-                    break;
-                }
-                stuck = 1;
-            }
-            refresh_buf = 1;
-        }else{
-            buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+//            printf("Here!\n");
         }
         
-        if(stuck == 1)
+        if (!refresh_buf && key_tap) {
+            int i;
+//           printf("I am the answer!\n");
+            stuck = 0;
+            for (i=3; i>=0; i--) {
+                if (buf[i][3] < 100 && buf[i][3] > -100) {
+                    stuck = 1;
+                    buf_out << fingers[0].tipPosition().y << ", " << buf[i][1] << ", " << buf[i][2];
+//                    printf("buf: %f, %f, %f\n", buf[i][1], buf[i][2], buf[i][3]);
+                    break;
+                }
+            }
+            if(stuck == 0)
+                buf_out << fingers[0].tipPosition().y << ", " << buf[3][1] << ", " << buf[3][2];
+            
+            refresh_buf = 1;
+        }
+        else{
             buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
-        stuck = 0;
+        }
+
         
         if (!tapSettingDone && abs(fingers[0].tipVelocity().y) > abs(hand.palmVelocity().y)
                             && !fingers.empty()) {
