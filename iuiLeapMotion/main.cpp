@@ -32,6 +32,9 @@ float HighestFingerPosition;
 float LowestFingerPosition;
 long HighestFingerTimestamp;
 long LowestFingerTimestamp; 
+float buf[4][4] = {0}; //tipVelocity, x, y, z
+int refresh_buf = 1;
+int stuck = 0;
 
 int sd;
 struct sockaddr_in broadcastAddr;
@@ -133,7 +136,7 @@ void socket_setup(int port){
     // Make an endpoint
     memset(&broadcastAddr, 0, sizeof broadcastAddr);
     broadcastAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*192.168.0.255*//*169.254.255.255*/
+    inet_pton(AF_INET, "127.0.0.1", &broadcastAddr.sin_addr); /*192.168.0.255*//*169.254.255.255*/
     // Set the self broadcast IP address
     broadcastAddr.sin_port = htons(port); // Set port 8000
     
@@ -201,6 +204,104 @@ void SampleListener::onFrame(const Controller& controller) {
     buf_out.str("");
     buf_out.clear();
     
+    
+    //Set new keytap configuration
+    if(tapSettingDone){
+        controller.config().setFloat("Gesture.KeyTap.MinDistance", 2.0f);
+        
+        if ( MaxVelocity > -50 ){
+            controller.config().setFloat("Gesture.KeyTap.MinDownVelocity", fabs(MaxVelocity));
+        }
+        
+        if ( fabs(LowestFingerTimestamp - HighestFingerTimestamp)/10100000 > 0.1) {
+            controller.config().setFloat("Gesture.KeyTap.HistorySeconds", fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000);
+        }
+        controller.config().save();
+    }
+    key_tap = 0;
+    
+    // Get gestures
+    const GestureList gestures = frame.gestures();
+    for (int g = 0; g < gestures.count(); ++g) {
+        Gesture gesture = gestures[g];
+        
+        switch (gesture.type()) {
+                //            case Gesture::TYPE_CIRCLE:
+                //            {
+                //                CircleGesture circle = gesture;
+                //                std::string clockwiseness;
+                //
+                //                if (circle.pointable().direction().angleTo(circle.normal()) <= PI/4) {
+                //                    clockwiseness = "clockwise";
+                //                } else {
+                //                    clockwiseness = "counterclockwise";
+                //                }
+                //
+                //                // Calculate angle swept since last frame
+                //                float sweptAngle = 0;
+                //                if (circle.state() != Gesture::STATE_START) {
+                //                    CircleGesture previousUpdate = CircleGesture(controller.frame(1).gesture(circle.id()));
+                //                    sweptAngle = (circle.progress() - previousUpdate.progress()) * 2 * PI;
+                //                }
+                //                std::cout << "Circle id: " << gesture.id()
+                //                << ", state: " << gesture.state()
+                //                << ", progress: " << circle.progress()
+                //                << ", radius: " << circle.radius()
+                //                << ", angle " << sweptAngle * RAD_TO_DEG
+                //                <<  ", " << clockwiseness << std::endl;
+                //                break;
+                //            }
+                //            case Gesture::TYPE_SWIPE:
+                //            {
+                //                SwipeGesture swipe = gesture;
+                //                std::cout << "Swipe id: " << gesture.id()
+                //                << ", state: " << gesture.state()
+                //                << ", direction: " << swipe.direction()
+                //                << ", speed: " << swipe.speed() << std::endl;
+                //                break;
+                //            }
+            case Gesture::TYPE_KEY_TAP:
+            {
+                KeyTapGesture tap = gesture;
+                std::cout << "*********** Key Tap id: " << gesture.id()
+                << ", state: " << gesture.state()
+                << ", position: " << tap.position()
+                << ", direction: " << tap.direction()<< std::endl;
+                
+                key_tap = 1;
+                printf("open\n");
+                //                if(key_tap){
+                //                    int i;
+                //                    for (i=3; i>=0; i--) {
+                //                        if (buf[i][3] > -100 && buf[i][3] < 100) {
+                //
+                //                        }
+                //                    }
+                //                }
+                
+                break;
+            }
+                //            case Gesture::TYPE_SCREEN_TAP:
+                //            {
+                //                ScreenTapGesture screentap = gesture;
+                //                std::cout << "Screen Tap id: " << gesture.id()
+                //                << ", state: " << gesture.state()
+                //                << ", position: " << screentap.position()
+                //                << ", direction: " << screentap.direction()<< std::endl;
+                //                break;
+                //            }
+            default:
+                //                std::cout << "Unknown gesture type." << std::endl;
+                break;
+        }
+    }
+    
+//    if (!frame.hands().empty() || !gestures.empty()) {
+//        std::cout << std::endl;
+//    }
+    
+//Gesture end
+    
     if (!frame.hands().empty()) {
         // Get the first hand
         Hand hand = frame.hands()[0];
@@ -261,25 +362,57 @@ void SampleListener::onFrame(const Controller& controller) {
         //printf("高度: %f, 手指位置： %f", direction.pitch() * RAD_TO_DEG, fingers[0].tipPosition());
         // buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
         
-        
-        //put finger position to buf_out
-        buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z << ", " << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z << ", " << fingers[0].tipVelocity().y;
-        
         //sprintf(buf, "高度: %f\n",direction.pitch() * RAD_TO_DEG );
         //std::string s = stringstream.str();
         //const char* p = s.c_str();
+        
+        if(fingers[0].tipVelocity().y < -200 && abs(fingers[0].tipVelocity().y) > 2*abs(hand.palmVelocity().y)){
+            refresh_buf = 0;
+//            printf("Close\n");
+        }
+        if (refresh_buf && (fingers[0].tipPosition().y != 0 && fingers[0].tipPosition().x != 0 && fingers[0].tipPosition().z != 0)) {
+            int i;
+            for(i=0; i<4; i++){
+                buf[i][0] = buf[i+1][0];
+                buf[i][1] = buf[i+1][1];
+                buf[i][2] = buf[i+1][2];
+                buf[i][3] = buf[i+1][3];
+            }
+            buf[3][0] = fingers[0].tipPosition().y;
+            buf[3][1] = fingers[0].tipPosition().x;
+            buf[3][2] = fingers[0].tipPosition().z;
+            buf[3][3] = fingers[0].tipVelocity().y;
+        }
+        if (!refresh_buf && key_tap) {
+            int i;
+            printf("I am the answer!\n");
+            for (i=3; i>=0; i--) {
+                if (buf[i][3] < 100 && buf[i][3] > -100) {
+                    buf_out << buf[i][0] << ", " << buf[i][1] << ", " << buf[i][2];
+                    break;
+                }
+                stuck = 1;
+            }
+            refresh_buf = 1;
+        }else{
+            buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+        }
+        
+        if(stuck == 1)
+            buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+        stuck = 0;
         
         if (!tapSettingDone && abs(fingers[0].tipVelocity().y) > abs(hand.palmVelocity().y)
                             && !fingers.empty()) {
             if(fingers[0].tipVelocity().y < MaxVelocity && fingers[0].tipVelocity().y < 0){
                 MaxVelocity = fingers[0].tipVelocity().y;
-            }
-            if (fingers[0].tipPosition().y > HighestFingerPosition && fingers[0].tipVelocity().y < 0) {
                 HighestFingerPosition = fingers[0].tipPosition().y;
                 HighestFingerTimestamp = frame.timestamp();
-//                std::cout << "HighestTimestamp: " << HighestFingerTimestamp << std::endl;
-//                std::cout << buf_out.str() << std::endl;
             }
+//            if (fingers[0].tipPosition().y > HighestFingerPosition && fingers[0].tipVelocity().y < 0) {
+//                HighestFingerPosition = fingers[0].tipPosition().y;
+//                HighestFingerTimestamp = frame.timestamp();
+//            }
             if (fingers[0].tipPosition().y < LowestFingerPosition && fingers[0].tipVelocity().y < 0) {
                 LowestFingerPosition = fingers[0].tipPosition().y;
                 LowestFingerTimestamp = frame.timestamp();
@@ -288,104 +421,22 @@ void SampleListener::onFrame(const Controller& controller) {
             }
         }
         
+        buf_out << ", " << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z << ", " << fingers[0].tipVelocity().y;
+
+        
     }
     else{
         
         buf_out << "0, 0, 0, 0, 0, 0, 0, 0";
     }
-    //---End Socket Client----------------------------------------
-    
-    //-----------------------------------------------------end of old client socket--------------
-    
-    //Set new keytap configuration
-    if(tapSettingDone){
-        controller.config().setFloat("Gesture.KeyTap.MinDistance", 2.0f);
-        
-        if ( MaxVelocity > -50 ){
-            controller.config().setFloat("Gesture.KeyTap.MinDownVelocity", fabs(MaxVelocity));
-        }
-        
-        if ( fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000 > 0.1) {
-            controller.config().setFloat("Gesture.KeyTap.HistorySeconds", fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000);
-        }
-        controller.config().save();
-    }
-    
-    // Get gestures
-    const GestureList gestures = frame.gestures();
-    for (int g = 0; g < gestures.count(); ++g) {
-        Gesture gesture = gestures[g];
-        
-        switch (gesture.type()) {
-//            case Gesture::TYPE_CIRCLE:
-//            {
-//                CircleGesture circle = gesture;
-//                std::string clockwiseness;
-//                
-//                if (circle.pointable().direction().angleTo(circle.normal()) <= PI/4) {
-//                    clockwiseness = "clockwise";
-//                } else {
-//                    clockwiseness = "counterclockwise";
-//                }
-//                
-//                // Calculate angle swept since last frame
-//                float sweptAngle = 0;
-//                if (circle.state() != Gesture::STATE_START) {
-//                    CircleGesture previousUpdate = CircleGesture(controller.frame(1).gesture(circle.id()));
-//                    sweptAngle = (circle.progress() - previousUpdate.progress()) * 2 * PI;
-//                }
-//                std::cout << "Circle id: " << gesture.id()
-//                << ", state: " << gesture.state()
-//                << ", progress: " << circle.progress()
-//                << ", radius: " << circle.radius()
-//                << ", angle " << sweptAngle * RAD_TO_DEG
-//                <<  ", " << clockwiseness << std::endl;
-//                break;
-//            }
-//            case Gesture::TYPE_SWIPE:
-//            {
-//                SwipeGesture swipe = gesture;
-//                std::cout << "Swipe id: " << gesture.id()
-//                << ", state: " << gesture.state()
-//                << ", direction: " << swipe.direction()
-//                << ", speed: " << swipe.speed() << std::endl;
-//                break;
-//            }
-            case Gesture::TYPE_KEY_TAP:
-            {
-                KeyTapGesture tap = gesture;
-                std::cout << "*********** Key Tap id: " << gesture.id()
-                << ", state: " << gesture.state()
-                << ", position: " << tap.position()
-                << ", direction: " << tap.direction()<< std::endl;
-                
-                key_tap = 1;
-                break;
-            }
-//            case Gesture::TYPE_SCREEN_TAP:
-//            {
-//                ScreenTapGesture screentap = gesture;
-//                std::cout << "Screen Tap id: " << gesture.id()
-//                << ", state: " << gesture.state()
-//                << ", position: " << screentap.position()
-//                << ", direction: " << screentap.direction()<< std::endl;
-//                break;
-//            }
-            default:
-//                std::cout << "Unknown gesture type." << std::endl;
-                break;
-        }
-    }
-    
-    if (!frame.hands().empty() || !gestures.empty()) {
- //       std::cout << std::endl;
-    }
-    
     
     //socket add key_tap
     if (!frame.hands().empty()){
         buf_out << ", " << key_tap;
     }
+    //---End Socket Client----------------------------------------
+    
+    //-----------------------------------------------------end of old client socket--------------
     
     //--socket send message-------------------
     /*
@@ -408,7 +459,6 @@ void SampleListener::onFrame(const Controller& controller) {
     ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
 //    buf_out << std::endl;
 //    std::cout << buf_out.str() << std::endl;
-    key_tap = 0;
     
     if (ret<0) {
         perror("Error: Could not open send broadcast");
