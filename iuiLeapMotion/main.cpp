@@ -36,6 +36,7 @@ float buf[4][4] = {0}; //tipVelocity, x, y, z
 int refresh_buf = 1;
 int stuck = 0;
 long long tempTimestamp;
+Leap::Vector keyTapPosition;
 
 int sd;
 struct sockaddr_in broadcastAddr;
@@ -137,7 +138,7 @@ void socket_setup(int port){
     // Make an endpoint
     memset(&broadcastAddr, 0, sizeof broadcastAddr);
     broadcastAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*192.168.0.255*//*169.254.255.255*/
+    inet_pton(AF_INET, "127.0.0.1", &broadcastAddr.sin_addr); /*192.168.0.255*//*169.254.255.255*/
     // Set the self broadcast IP address
     broadcastAddr.sin_port = htons(port); // Set port 8000
     
@@ -163,12 +164,12 @@ void SampleListener::onFrame(const Controller& controller) {
     // Get the most recent frame and report some basic information
     const Frame frame = controller.frame();
 
-//    std::cout << "Frame id: " << frame.id()
-//    << ", timestamp: " << frame.timestamp()
-//    << ", hands: " << frame.hands().count()
-//    << ", fingers: " << frame.fingers().count()
-//    << ", tools: " << frame.tools().count()
-//    << ", gestures: " << frame.gestures().count() << std::endl;
+    std::cout << "Frame id: " << frame.id()
+    << ", timestamp: " << frame.timestamp()
+    << ", hands: " << frame.hands().count()
+    << ", fingers: " << frame.fingers().count()
+    << ", tools: " << frame.tools().count()
+    << ", gestures: " << frame.gestures().count() << std::endl;
 
     //------------------------------------------------------------old client socket--------------
     
@@ -214,7 +215,7 @@ void SampleListener::onFrame(const Controller& controller) {
             controller.config().setFloat("Gesture.KeyTap.MinDownVelocity", fabs(MaxVelocity));
         }
         
-        if ( fabs(LowestFingerTimestamp - HighestFingerTimestamp)/10100000 > 0.1) {
+        if ( fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000 > 0.1) {
             controller.config().setFloat("Gesture.KeyTap.HistorySeconds", fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000);
         }
         controller.config().save();
@@ -268,6 +269,8 @@ void SampleListener::onFrame(const Controller& controller) {
                 << ", state: " << gesture.state()
                 << ", position: " << tap.position()
                 << ", direction: " << tap.direction()<< std::endl;
+                
+                keyTapPosition = tap.position();
                 
                 key_tap = 1;
                 printf("open\n");
@@ -413,7 +416,7 @@ void SampleListener::onFrame(const Controller& controller) {
         }
 
         
-        if (!tapSettingDone && abs(fingers[0].tipVelocity().y) > abs(hand.palmVelocity().y)
+        if (!tapSettingDone && fabs(fingers[0].tipVelocity().y) > fabs(hand.palmVelocity().y)
                             && !fingers.empty()) {
             if(fingers[0].tipVelocity().y < MaxVelocity && fingers[0].tipVelocity().y < 0){
                 MaxVelocity = fingers[0].tipVelocity().y;
@@ -433,18 +436,22 @@ void SampleListener::onFrame(const Controller& controller) {
         }
         
         buf_out << ", " << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z << ", " << fingers[0].tipVelocity().y;
-
+        
+        buf_out << ", " << key_tap;
+        
+        if(key_tap){
+            buf_out << ", " << keyTapPosition.x << ", " << keyTapPosition.z;
+            buf_out << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
+        }else{
+            buf_out << ", 0, 0, 0, 0";
+        }
         
     }
     else{
         
-        buf_out << "0, 0, 0, 0, 0, 0, 0, 0";
+        buf_out << "0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0";
     }
     
-    //socket add key_tap
-    if (!frame.hands().empty()){
-        buf_out << ", " << key_tap;
-    }
     //---End Socket Client----------------------------------------
     
     //-----------------------------------------------------end of old client socket--------------
@@ -469,7 +476,7 @@ void SampleListener::onFrame(const Controller& controller) {
 */
     ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
 //    buf_out << std::endl;
-//    std::cout << buf_out.str() << std::endl;
+    std::cout << buf_out.str() << std::endl;
     
     if (ret<0) {
         perror("Error: Could not open send broadcast");
