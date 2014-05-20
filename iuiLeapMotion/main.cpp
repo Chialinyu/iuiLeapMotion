@@ -78,7 +78,7 @@ void SampleListener::onExit(const Controller& controller) {
     std::cout << "Exited" << std::endl;
 }
 
-//----------Socket Server Set up------------------------------------------------
+//----------------Socket Server Set up------------------------------------------------
 void socket_setup(int port){
     
     int sockfd;
@@ -111,13 +111,14 @@ void socket_setup(int port){
     // Make an endpoint
     memset(&broadcastAddr, 0, sizeof broadcastAddr);
     broadcastAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "127.0.0.1", &broadcastAddr.sin_addr); /*127.0.0.1*//*192.168.0.255*//*169.254.255.255*/
+    inet_pton(AF_INET, "169.254.255.255", &broadcastAddr.sin_addr); /*127.0.0.1*//*169.254.255.255*/
     // Set the self broadcast IP address
     broadcastAddr.sin_port = htons(port); // Set port 8000
     
 }
+//------------------Socket Server Set up end----------------------------------
 
-//Gesture Setting and Detectin start-----------------------
+//------------------Gesture Setting and Detecting start-----------------------
 void SampleListener::onFrame(const Controller& controller) {
     // Get the most recent frame and report some basic information
     const Frame frame = controller.frame();
@@ -232,7 +233,7 @@ void SampleListener::onFrame(const Controller& controller) {
 //        std::cout << std::endl;
 //    }
     
-//Gesture Setting and Detectin end-----------------------
+//-------------Gesture Setting and Detectin end-----------------------
 
     
     if (!frame.hands().empty()) {
@@ -287,6 +288,8 @@ void SampleListener::onFrame(const Controller& controller) {
         //const char* p = s.c_str();
         
         
+//--------------refreshing refresh_buf  start-------------------
+        
         //Close the refresh_buf and record the timestamp into tempTimestamp
         if(fingers[0].tipVelocity().y < -200 && abs(fingers[0].tipVelocity().y) > 2*abs(hand.palmVelocity().y) && refresh_buf){
             refresh_buf = 0;
@@ -327,6 +330,8 @@ void SampleListener::onFrame(const Controller& controller) {
                     break;
                 }
             }
+            
+            //no matching information in the refresh_buf, use the last information
             if(stuck == 0)
                 buf_out << fingers[0].tipPosition().y << ", " << buf[3][1] << ", " << buf[3][2];
             
@@ -336,7 +341,9 @@ void SampleListener::onFrame(const Controller& controller) {
         else{
             buf_out << fingers[0].tipPosition().y << ", " << fingers[0].tipPosition().x << ", " << fingers[0].tipPosition().z;
         }
-
+//--------------refreshing refresh_buf  end-------------------
+        
+        
         //Recording the heighest and the lowest position
         if (!tapSettingDone && fabs(fingers[0].tipVelocity().y) > fabs(hand.palmVelocity().y)
                             && !fingers.empty()) {
@@ -356,6 +363,10 @@ void SampleListener::onFrame(const Controller& controller) {
 //                std::cout << buf_out.str() << std::endl;
             }
         }
+        
+
+//--------------Save data to buf_out and transmit it to ios start-------------------
+//Data order: f_z, f_x, f_y, p_z, p_x, p_y, f_velocity, keytap, leap_keytap_x, leap_keytap_y, f_x(傳送當下), f_y(傳送當下)
         
         //Output palm position and tipVelocity and key_tap boolean to buf_out
         buf_out << ", " << hand.palmPosition().y << ", " << hand.palmPosition().x << ", " << hand.palmPosition().z << ", " << fingers[0].tipVelocity().y;
@@ -380,17 +391,14 @@ void SampleListener::onFrame(const Controller& controller) {
 
     // Send buf_out to ios device by broadcasting
     ret = sendto(sd, buf_out.str().c_str(), strlen(buf_out.str().c_str()), 0, (struct sockaddr*)&broadcastAddr, sizeof(broadcastAddr));
-//    buf_out << std::endl;
     std::cout << buf_out.str() << std::endl;
     
     if (ret<0) {
         perror("Error: Could not open send broadcast");
         close(sd);
     }
-    
     close(sd);
-    
-    //--end socket send message------------------
+//--------------Save data to buf_out and transmit it to ios end-------------------
     
 }
 
@@ -418,7 +426,9 @@ int main() {
     int input;
     
     while (scanf("%d", &input) == 1) {
-        if (input == 1) { //tap Setting Mode
+        
+        //Mode 1: tap Setting Mode
+        if (input == 1) {
             std::cout << "Start Setting KeyTap!\n";
             tapSettingDone = 0;
             MaxVelocity = 0;
@@ -427,25 +437,27 @@ int main() {
             // Have the sample listener receive events from the controller
             controller.addListener(listener_tapSetting);
             printf("tapSetting......\n");
-
-        }else if(input == 2){ //Print the new tapVelocity and historySeconds
+        }
+        
+        
+        //Mode 2: Print the new tapVelocity and historySeconds, and end Mode 1
+        else if(input == 2){
             // Remove the sample listener when done
             controller.removeListener(listener_tapSetting);
             std::cout << "HighestTapVelocity: " << MaxVelocity << std::endl;
             std::cout << "HistorySeconds: " << fabs(LowestFingerTimestamp - HighestFingerTimestamp)/1000000 <<std::endl;
             tapSettingDone = 1;
-            
-        }else if(input == 3){   
+        }
+        
+        
+        //Mode 3
+        else if(input == 3){
             std::cout << "Start Transmitting!\n";
             controller.addListener(listener_transmitting);
             
         }
     }
-    
-    //    std::thread mThread( define_level );
-    
-    // Keep this process running until Enter is pressed
-    
+        
     
     return 0;
 }
